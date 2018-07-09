@@ -106,6 +106,15 @@ def test_local_requirement_ignored(testdir, monkeypatch):
     assert 'passed' in result.stdout.str()
 
 
+def test_vcs_requirement_ignored(testdir, monkeypatch):
+    testdir.makefile('.txt', requirements='git+https://github.com/foo/bar')
+    testdir.makeini('[pytest]\nreqsignorevcs=True')
+    monkeypatch.setattr('pytest_reqs.pip_api.installed_distributions', lambda: {})
+
+    result = testdir.runpytest("--reqs")
+    assert 'passed' in result.stdout.str()
+
+
 def test_local_requirement_ignored_using_dynamic_config(testdir, monkeypatch):
     testdir.makefile('.txt', requirements='-e ../foo')
     testdir.makeconftest("""
