@@ -92,8 +92,7 @@ def test_invalid_requirement(requirements, mock_dist, testdir, monkeypatch):
     )
 
     result = testdir.runpytest("--reqs")
-    result.stdout.fnmatch_lines(["*Invalid requirement*", "*1 failed*"])
-
+    result.stdout.fnmatch_lines(["*Invalid requirement*"])
     assert "passed" not in result.stdout.str()
 
 
@@ -112,7 +111,7 @@ def test_local_requirement_ignored(testdir, monkeypatch):
     monkeypatch.setattr("pytest_reqs.pip_api.installed_distributions", lambda: {})
 
     result = testdir.runpytest("--reqs")
-    assert "passed" in result.stdout.str()
+    assert "collected 0 items" in result.stdout.str()
 
 
 def test_local_requirement_ignored_using_dynamic_config(testdir, monkeypatch):
@@ -121,7 +120,19 @@ def test_local_requirement_ignored_using_dynamic_config(testdir, monkeypatch):
         """
     def pytest_configure(config):
         config.ignore_local = True
-    """
+        """
+    )
+    monkeypatch.setattr("pytest_reqs.pip_api.installed_distributions", lambda: {})
+
+    result = testdir.runpytest("--reqs")
+    assert "collected 0 items" in result.stdout.str()
+
+
+def test_non_lowered_requirement(mock_dist, testdir, monkeypatch):
+    testdir.makefile(".txt", requirements="Foo")
+    monkeypatch.setattr(
+        "pytest_reqs.pip_api.installed_distributions",
+        lambda: {mock_dist.project_name: mock_dist},
     )
     monkeypatch.setattr("pytest_reqs.pip_api.installed_distributions", lambda: {})
 
