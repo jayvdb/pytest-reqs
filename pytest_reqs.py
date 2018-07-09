@@ -1,7 +1,5 @@
 
 from distutils.util import strtobool
-from glob import glob
-from itertools import chain
 from json import loads
 from os import devnull
 from subprocess import check_output
@@ -61,28 +59,28 @@ def pytest_sessionstart(session):
         config.patterns = config.getini('reqsfilenamepatterns')
 
 
-def pytest_collection_modifyitems(config, session, items):
-    if config.option.reqs:
-        check_requirements(config, session, items)
-    if config.option.reqs_outdated:
-        check_outdated_requirements(config, session, items)
+def pytest_collect_file(parent, path):
+    config = parent.config
+    if _is_requirements(config, path):
+        return ReqsFile(path, parent)
 
 
-def get_reqs_filenames(config):
-    patterns = config.patterns or DEFAULT_PATTERNS
-    return set(chain.from_iterable(map(glob, patterns)))
+def _is_requirements(config, path):
+    globs = config.patterns or DEFAULT_PATTERNS
+    for glob in globs:
+        if path.check(fnmatch=glob):
+            return True
+    return False
 
 
-def check_requirements(config, session, items):
-    installed_distributions = pip_api.installed_distributions()
-
-    items.extend(
-        ReqsItem(filename, installed_distributions, config, session)
-        for filename in get_reqs_filenames(config)
+def get_installed_distributions_mapping():
+    return dict(
+        (d.project_name.lower(), d)
+        for d in pip_api.installed_distributions()
     )
 
 
-def check_outdated_requirements(config, session, items):
+def get_outdated_requirements():
     local_pip_version = packaging.version.parse(
         get_distribution('pip').version
     )
@@ -95,10 +93,7 @@ def check_outdated_requirements(config, session, items):
                 stderr=DEVNULL
             ))
 
-            items.extend(
-                OutdatedReqsItem(filename, pip_outdated_dists, config, session)
-                for filename in get_reqs_filenames(config)
-            )
+            return pip_outdated_dists
 
 
 class PipOption:
@@ -110,16 +105,29 @@ class ReqsError(Exception):
     """ indicates an error during requirements checks. """
 
 
-class ReqsItem(pytest.Item, pytest.File):
+class ReqsBase(object):
 
-    def __init__(self, filename, installed_distributions, config, session):
-        super(ReqsItem, self).__init__(
-            filename, config=config, session=session
+    def repr_failure(self, excinfo):
+        if excinfo.errisinstance(ReqsError):
+            return excinfo.value.args[0]
+        return super(ReqsBase, self).repr_failure(excinfo)
+
+    def reportinfo(self):
+        return (self.fspath, -1, 'requirements-check')
+
+
+class ReqsFile(ReqsBase, pytest.File):
+
+    def __init__(self, filename, parent, config=None, session=None,
+                 nodeid=None, installed_distributions=None):
+        super(ReqsFile, self).__init__(
+            filename, parent, config=config, session=session
         )
-        self.add_marker('reqs')
-        self.filename = filename
+        self.filename = str(filename)
+        if not installed_distributions:
+            installed_distributions = get_installed_distributions_mapping()
         self.installed_distributions = installed_distributions
-        self.config = config
+        self.pip_outdated_dists = None
 
     def get_requirements(self):
         try:
@@ -132,50 +140,59 @@ class ReqsItem(pytest.Item, pytest.File):
                 self.filename,
             ))
 
-    def runtest(self):
+    def collect(self):
+        if self.config.option.reqs_outdated:
+            self.pip_outdated_dists = get_outdated_requirements()
+
         for name, req in self.get_requirements().items():
-            try:
-                installed_distribution = self.installed_distributions[name]
-            except KeyError:
-                raise ReqsError(
-                    'Distribution "%s" is not installed' % (name)
-                )
-            if not req.specifier.contains(installed_distribution.version):
-                raise ReqsError(
-                    'Distribution "%s" requires %s but %s is installed' % (
-                        installed_distribution.project_name,
-                        req,
-                        installed_distribution.version,
-                    ))
+            if self.config.option.reqs:
+                yield ReqsItem(name, self, req)
+            if self.config.option.reqs_outdated:
+                yield OutdatedReqsItem(name, self, req)
 
-    def repr_failure(self, excinfo):
-        if excinfo.errisinstance(ReqsError):
-            return excinfo.value.args[0]
-        return super(ReqsItem, self).repr_failure(excinfo)
 
-    def reportinfo(self):
-        return (self.fspath, -1, 'requirements-check')
+class ReqsItem(ReqsBase, pytest.Item):
+
+    def __init__(self, name, parent, requirement):
+        super(ReqsItem, self).__init__(name, parent)
+        self.add_marker('reqs')
+        self.requirement = requirement
+        self.installed_distributions = parent.installed_distributions
+
+    def runtest(self):
+        name = self.name
+        req = self.requirement
+        try:
+            installed_distribution = self.installed_distributions[name]
+        except KeyError:
+            raise ReqsError(
+                'Distribution "%s" is not installed' % (name)
+            )
+        if not req.specifier.contains(installed_distribution.version):
+            raise ReqsError(
+                'Distribution "%s" requires %s but %s is installed' % (
+                    installed_distribution.project_name,
+                    req,
+                    installed_distribution.version,
+                ))
 
 
 class OutdatedReqsItem(ReqsItem):
-    def __init__(self, filename, pip_outdated_dists, config, session):
-        super(ReqsItem, self).__init__(
-            filename, config=config, session=session
-        )
+
+    def __init__(self, name, parent, requirement):
+        super(OutdatedReqsItem, self).__init__(name, parent, requirement)
         self.add_marker('reqs-outdated')
-        self.filename = filename
-        self.pip_outdated_dists = pip_outdated_dists
-        self.config = config
 
     def runtest(self):
-        for name, req in self.get_requirements().items():
-            for dist in self.pip_outdated_dists:
-                if name == dist['name']:
-                    raise ReqsError(
-                        'Distribution "%s" is outdated (from %s), '
-                        'latest version is %s==%s' % (
-                            name,
-                            req.comes_from,
-                            name,
-                            dist['latest_version']
-                        ))
+        name = self.name
+        req = self.requirement
+        for dist in self.parent.pip_outdated_dists:
+            if name == dist['name']:
+                raise ReqsError(
+                    'Distribution "%s" is outdated (from %s), '
+                    'latest version is %s==%s' % (
+                        name,
+                        req.comes_from,
+                        name,
+                        dist['latest_version']
+                    ))
