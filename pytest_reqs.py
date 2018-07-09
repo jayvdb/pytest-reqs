@@ -6,21 +6,10 @@ from json import loads
 from os import devnull
 from subprocess import check_output
 from sys import executable
-from warnings import warn
 
 import packaging.version
 import pytest
 from pkg_resources import get_distribution
-
-max_version = packaging.version.parse('9.0.2')
-pip_version = packaging.version.parse(get_distribution('pip').version)
-if pip_version > max_version:
-    warn(
-        'Version pip=={} is possibly incompatible, highest '
-        'known compatible version is {}.'.format(
-            pip_version, max_version
-        )
-    )
 
 from pip import get_installed_distributions  # noqa
 from pip.download import PipSession  # noqa
