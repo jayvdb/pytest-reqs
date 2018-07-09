@@ -81,12 +81,10 @@ def test_invalid_requirement(requirements, mock_dist, testdir, monkeypatch):
     if pip.__version__ < '8.0.0':
         result.stdout.fnmatch_lines([
             '*Expected version spec in*',
-            "*1 failed*",
         ])
     else:
         result.stdout.fnmatch_lines([
             '*Invalid requirement*',
-            "*1 failed*",
         ])
     assert 'passed' not in result.stdout.str()
 
@@ -108,7 +106,7 @@ def test_local_requirement_ignored(testdir, monkeypatch):
     monkeypatch.setattr('pytest_reqs.get_installed_distributions', lambda: [])
 
     result = testdir.runpytest("--reqs")
-    assert 'passed' in result.stdout.str()
+    assert 'collected 0 items' in result.stdout.str()
 
 
 def test_local_requirement_ignored_using_dynamic_config(testdir, monkeypatch):
@@ -120,7 +118,7 @@ def test_local_requirement_ignored_using_dynamic_config(testdir, monkeypatch):
     monkeypatch.setattr('pytest_reqs.get_installed_distributions', lambda: [])
 
     result = testdir.runpytest("--reqs")
-    assert 'passed' in result.stdout.str()
+    assert 'collected 0 items' in result.stdout.str()
 
 
 def test_non_lowered_requirement(mock_dist, testdir, monkeypatch):
@@ -194,7 +192,7 @@ def test_outdated_version(requirements, testdir, monkeypatch):
 
     result = testdir.runpytest("--reqs-outdated")
     result.stdout.fnmatch_lines([
-        '*Distribution "foo" is outdated (from -r requirements.txt (line 1)), '
+        '*Distribution "foo" is outdated (from -r *requirements.txt (line 1)), '
         'latest version is foo==1.0.1*',
         "*1 failed*",
     ])
