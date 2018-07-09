@@ -35,6 +35,9 @@ def pytest_configure(config):
     )
 
 
+PIP_VCS_SCHEMES = ["ssh", "git", "hg", "bzr", "sftp", "svn"]
+
+
 def pytest_addoption(parser):
     group = parser.getgroup("general")
     group.addoption(
@@ -48,6 +51,7 @@ def pytest_addoption(parser):
         help="check requirements files for updates",
     )
     parser.addini("reqsignorelocal", help="ignore local requirements (default: False)")
+    parser.addini("reqsignorevcs", help="ignore vcs requirements (default: False)")
     parser.addini(
         "reqsfilenamepatterns",
         help="Override the default filename patterns to search (default:"
@@ -61,6 +65,9 @@ def pytest_sessionstart(session):
     if not hasattr(config, "ignore_local"):
         ignore_local = config.getini("reqsignorelocal") or "no"
         config.ignore_local = strtobool(ignore_local)
+    if not hasattr(config, "ignore_vcs"):
+        ignore_vcs = config.getini("reqsignorevcs") or "no"
+        config.ignore_vcs = strtobool(ignore_vcs)
     if not hasattr(config, "patterns"):
         config.patterns = config.getini("reqsfilenamepatterns")
 
@@ -112,7 +119,17 @@ def check_outdated_requirements(config, session, items):
 
 class PipOption:
     def __init__(self, config):
-        self.skip_requirements_regex = "^-e" if config.ignore_local else ""
+        if config.ignore_vcs:
+            skip_prefixes = [item + r"\+" for item in PIP_VCS_SCHEMES]
+        else:
+            skip_prefixes = []
+        if config.ignore_local:
+            skip_prefixes.append("-e")
+
+        if skip_prefixes:
+            self.skip_requirements_regex = "^(%s)" % "|".join(skip_prefixes)
+        else:
+            self.skip_requirements_regex = ""
 
 
 class ReqsError(Exception):
