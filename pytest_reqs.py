@@ -9,8 +9,8 @@ from sys import executable
 from warnings import warn
 
 import packaging.version
-import pytest
 from pkg_resources import get_distribution
+import pytest
 
 max_version = packaging.version.parse('9.0.2')
 pip_version = packaging.version.parse(get_distribution('pip').version)
