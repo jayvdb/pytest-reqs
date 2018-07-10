@@ -22,6 +22,7 @@ def mock_dist():
     'foo==1.0',
     'foo>=1.0',
     'foo<=1.0',
+    'git+https://github.com/bar/baz#egg=foo',
 ])
 def test_existing_requirement(requirements, mock_dist, testdir, monkeypatch):
     testdir.makefile('.txt', requirements=requirements)
@@ -36,6 +37,18 @@ def test_existing_requirement(requirements, mock_dist, testdir, monkeypatch):
 
 def test_missing_requirement(mock_dist, testdir, monkeypatch):
     testdir.makefile('.txt', requirements='foo')
+    monkeypatch.setattr('pytest_reqs.get_installed_distributions', lambda: [])
+
+    result = testdir.runpytest("--reqs")
+    result.stdout.fnmatch_lines([
+        '*Distribution "foo" is not installed*',
+        "*1 failed*",
+    ])
+    assert 'passed' not in result.stdout.str()
+
+
+def test_missing_vcs_requirement(testdir, monkeypatch):
+    testdir.makefile('.txt', requirements='git+https://github.com/bar/bar#egg=foo')
     monkeypatch.setattr('pytest_reqs.get_installed_distributions', lambda: [])
 
     result = testdir.runpytest("--reqs")
