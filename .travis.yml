@@ -8,10 +8,9 @@ python:
   - "pypy"
 
 install:
-  - pip install tox
-  - export TOX_ENV=`tox --listenvs | grep "py${TRAVIS_PYTHON_VERSION/./}" | tr '\n' ','`
+  - pip install tox-travis
 
-script: tox -e $TOX_ENV
+script: tox
 
 before_cache:
   - rm -rf $HOME/.cache/pip/log
