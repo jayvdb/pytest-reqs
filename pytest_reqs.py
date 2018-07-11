@@ -125,12 +125,12 @@ class ReqsBase(object):
 
 class ReqsFile(ReqsBase, pytest.File):
 
-    def __init__(self, fspath, parent, config=None, session=None,
+    def __init__(self, filename, parent, config=None, session=None,
                  nodeid=None, installed_distributions=None):
         super(ReqsFile, self).__init__(
-            fspath, parent, config=config, session=session, nodeid=nodeid,
+            filename, parent, config=config, session=session
         )
-        self.filename = str(fspath)
+        self.filename = str(filename)
         if not installed_distributions:
             installed_distributions = get_installed_distributions_mapping()
         self.installed_distributions = installed_distributions
