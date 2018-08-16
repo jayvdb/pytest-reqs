@@ -1,3 +1,5 @@
+import sys
+
 from distutils.version import LooseVersion
 from pkg_resources import get_distribution
 
@@ -22,6 +24,8 @@ def mock_dist():
     'foo==1.0',
     'foo>=1.0',
     'foo<=1.0',
+    'foo<=1.0;python_version>="1.0"',
+    'foo<=1.0;python_version<="%s"' % sys.version[:3],
 ])
 def test_existing_requirement(requirements, mock_dist, testdir, monkeypatch):
     testdir.makefile('.txt', requirements=requirements)
@@ -29,6 +33,15 @@ def test_existing_requirement(requirements, mock_dist, testdir, monkeypatch):
         'pytest_reqs.pip_api.installed_distributions',
         lambda: {mock_dist.project_name: mock_dist}
     )
+
+    result = testdir.runpytest("--reqs")
+    assert 'passed' in result.stdout.str()
+
+
+def test_unnecessary_requirement(mock_dist, testdir, monkeypatch):
+    testdir.makefile('.txt',
+                     requirements='foo;python_version<"%s"' % sys.version[:3])
+    monkeypatch.setattr('pytest_reqs.pip_api.installed_distributions', lambda: {})
 
     result = testdir.runpytest("--reqs")
     assert 'passed' in result.stdout.str()
@@ -50,6 +63,7 @@ def test_missing_requirement(mock_dist, testdir, monkeypatch):
     'foo==2.0',
     'foo>1.0',
     'foo<1.0',
+    'foo==2.0;python_version=="%s"' % sys.version[:3],
 ])
 def test_wrong_version(requirements, mock_dist, testdir, monkeypatch):
     testdir.makefile('.txt', requirements=requirements)
@@ -58,9 +72,10 @@ def test_wrong_version(requirements, mock_dist, testdir, monkeypatch):
         lambda: {mock_dist.project_name: mock_dist}
     )
 
+    name = requirements.split(';', 1)
     result = testdir.runpytest("--reqs")
     result.stdout.fnmatch_lines([
-        '*Distribution "foo" requires %s*' % (requirements),
+        '*Distribution "foo" requires %s*' % name,
         "*1 failed*",
     ])
     assert 'passed' not in result.stdout.str()
@@ -69,6 +84,7 @@ def test_wrong_version(requirements, mock_dist, testdir, monkeypatch):
 @pytest.mark.parametrize('requirements', [
     'foo=1.0',
     'foo=>1.0',
+    'foo==2.0; python_version=="%s"' % sys.version[:3],
 ])
 def test_invalid_requirement(requirements, mock_dist, testdir, monkeypatch):
     testdir.makefile('.txt', requirements=requirements)
