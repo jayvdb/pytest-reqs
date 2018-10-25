@@ -114,11 +114,11 @@ def check_outdated_requirements(config, session, items):
 
 class PipOption:
     def __init__(self, config):
+        skip_prefixes = ['#']
         if config.ignore_vcs:
-            skip_prefixes = [
+            skip_prefixes += [
                item + r'\+' for item in PIP_VCS_SCHEMES]
-        else:
-            skip_prefixes = []
+
         if config.ignore_local:
             skip_prefixes.append('-e')
 

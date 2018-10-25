@@ -25,6 +25,7 @@ def mock_dist_titlecase():
 
 
 @pytest.mark.parametrize('requirements', [
+    '# comment'
     'foo',
     'Foo',
     'foo==1.0',
