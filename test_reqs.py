@@ -18,6 +18,7 @@ def mock_dist():
 
 
 @pytest.mark.parametrize('requirements', [
+    '# comment'
     'foo',
     'foo==1.0',
     'foo>=1.0',

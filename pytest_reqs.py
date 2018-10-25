@@ -103,7 +103,10 @@ def check_outdated_requirements(config, session, items):
 
 class PipOption:
     def __init__(self, config):
-        self.skip_requirements_regex = '^-e' if config.ignore_local else ''
+        if config.ignore_local:
+            self.skip_requirements_regex = '^(-e|#)'
+        else:
+            self.skip_requirements_regex = '^#'
 
 
 class ReqsError(Exception):
