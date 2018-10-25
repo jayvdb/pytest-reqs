@@ -153,6 +153,10 @@ class ReqsItem(pytest.Item, pytest.File):
 
     def runtest(self):
         for name, req in self.get_requirements().items():
+            if req.marker:
+                if not req.marker.evaluate():
+                    continue
+
             try:
                 installed_distribution = self.installed_distributions[name]
             except KeyError:
