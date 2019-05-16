@@ -13,7 +13,7 @@ setup(
     url="https://github.com/di/pytest-reqs",
     py_modules=["pytest_reqs"],
     entry_points={"pytest11": ["reqs = pytest_reqs"]},
-    install_requires=["pytest>=2.4.2", "packaging>=17.1", "pip_api>=0.0.2"],
+    install_requires=["pytest>=2.4.2", "packaging==16.8", "pip_api>=0.0.2"],
     tests_require=["pytest>=2.4.2", "pretend"],
     classifiers=[
         "Framework :: Pytest",
